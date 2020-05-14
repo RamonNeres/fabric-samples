@@ -20,16 +20,16 @@ async function main() {
         console.log(`Wallet path: ${walletPath}`);
 
         // Check to see if we've already enrolled the user.
-        const identity = await wallet.get('user1');
+        const identity = await wallet.get('user2');
         if (!identity) {
-            console.log('An identity for the user "user1" does not exist in the wallet');
+            console.log('An identity for the user "user2" does not exist in the wallet');
             console.log('Run the registerUser.js application before retrying');
             return;
         }
 
         // Create a new gateway for connecting to our peer node.
         const gateway = new Gateway();
-        await gateway.connect(ccp, { wallet, identity: 'user1', discovery: { enabled: true, asLocalhost: true } });
+        await gateway.connect(ccp, { wallet, identity: 'user2', discovery: { enabled: true, asLocalhost: true } });
 
         // Get the network (channel) our contract is deployed to.
         const network = await gateway.getNetwork('mychannel');
@@ -40,7 +40,14 @@ async function main() {
         // Submit the specified transaction.
         // createCar transaction - requires 5 argument, ex: ('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom')
         // changeCarOwner transaction - requires 2 args , ex: ('changeCarOwner', 'CAR10', 'Dave')
-        await contract.submitTransaction('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom');
+        //await contract.submitTransaction('createCar', 'CAR12', 'Honda', 'Accord', 'Black', 'Tom');
+        await contract.submitTransaction('createMedRecord', 'REC0001', 'user00001', 'buck1', 'a');
+
+        // for(var i = 1000 ; i <= 9999 ; i++){
+        //     await contract.submitTransaction('createCar', `CAR${i}`, 'Honda', 'Civic', 'Silver', 'James', '2015');
+        //     console.log(`Adicionado CAR${i}`);
+        // }
+
         console.log('Transaction has been submitted');
 
         // Disconnect from the gateway.

@@ -10,74 +10,84 @@ class FabCar extends Contract {
 
     async initLedger(ctx) {
         console.info('============= START : Initialize Ledger ===========');
-        const cars = [
-            {
-                color: 'blue',
-                make: 'Toyota',
-                model: 'Prius',
-                owner: 'Tomoko',
-            },
-            {
-                color: 'red',
-                make: 'Ford',
-                model: 'Mustang',
-                owner: 'Brad',
-            },
-            {
-                color: 'green',
-                make: 'Hyundai',
-                model: 'Tucson',
-                owner: 'Jin Soo',
-            },
-            {
-                color: 'yellow',
-                make: 'Volkswagen',
-                model: 'Passat',
-                owner: 'Max',
-            },
-            {
-                color: 'black',
-                make: 'Tesla',
-                model: 'S',
-                owner: 'Adriana',
-            },
-            {
-                color: 'purple',
-                make: 'Peugeot',
-                model: '205',
-                owner: 'Michel',
-            },
-            {
-                color: 'white',
-                make: 'Chery',
-                model: 'S22L',
-                owner: 'Aarav',
-            },
-            {
-                color: 'violet',
-                make: 'Fiat',
-                model: 'Punto',
-                owner: 'Pari',
-            },
-            {
-                color: 'indigo',
-                make: 'Tata',
-                model: 'Nano',
-                owner: 'Valeria',
-            },
-            {
-                color: 'brown',
-                make: 'Holden',
-                model: 'Barina',
-                owner: 'Shotaro',
-            },
-        ];
+        // const cars = [
+        //     {
+        //         color: 'blue',
+        //         make: 'Toyota',
+        //         model: 'Prius',
+        //         owner: 'Tomoko',
+        //         year: 2010,
+        //     },
+        //     {
+        //         color: 'red',
+        //         make: 'Ford',
+        //         model: 'Mustang',
+        //         owner: 'Brad',
+        //         year: 2012,
+        //     },
+        //     {
+        //         color: 'green',
+        //         make: 'Hyundai',
+        //         model: 'Tucson',
+        //         owner: 'Jin Soo',
+        //         year: 2014,
+        //     },
+        //     {
+        //         color: 'yellow',
+        //         make: 'Volkswagen',
+        //         model: 'Passat',
+        //         owner: 'Max',
+        //         year: 2008,
+        //     },
+        //     {
+        //         color: 'black',
+        //         make: 'Tesla',
+        //         model: 'S',
+        //         owner: 'Adriana',
+        //         year: 2020,
+        //     },
+        //     {
+        //         color: 'purple',
+        //         make: 'Peugeot',
+        //         model: '205',
+        //         owner: 'Michel',
+        //         year: 2009,
+        //     },
+        //     {
+        //         color: 'white',
+        //         make: 'Chery',
+        //         model: 'S22L',
+        //         owner: 'Aarav',
+        //         year: 2018,
+        //     },
+        //     {
+        //         color: 'violet',
+        //         make: 'Fiat',
+        //         model: 'Punto',
+        //         owner: 'Pari',
+        //         year: 2016,
+        //     },
+        //     {
+        //         color: 'indigo',
+        //         make: 'Tata',
+        //         model: 'Nano',
+        //         owner: 'Valeria',
+        //         year: 2014,
+        //     },
+        //     {
+        //         color: 'brown',
+        //         make: 'Holden',
+        //         model: 'Barina',
+        //         owner: 'Shotaro',
+        //         year: 2011,
+        //     },
+        // ];
 
-        for (let i = 0; i < cars.length; i++) {
-            cars[i].docType = 'car';
-            await ctx.stub.putState('CAR' + i, Buffer.from(JSON.stringify(cars[i])));
-            console.info('Added <--> ', cars[i]);
-        }
+        // for (let i = 0; i < cars.length; i++) {
+        //     cars[i].docType = 'car';
+        //     await ctx.stub.putState('CAR' + i, Buffer.from(JSON.stringify(cars[i])));
+        //     console.info('Added <--> ', cars[i]);
+        // }
         console.info('============= END : Initialize Ledger ===========');
     }
 
@@ -90,7 +100,7 @@ class FabCar extends Contract {
         return carAsBytes.toString();
     }
 
-    async createCar(ctx, carNumber, make, model, color, owner) {
+    async createCar(ctx, carNumber, make, model, color, owner, year) {
         console.info('============= START : Create Car ===========');
 
         const car = {
@@ -99,6 +109,7 @@ class FabCar extends Contract {
             make,
             model,
             owner,
+            year,
         };
 
         await ctx.stub.putState(carNumber, Buffer.from(JSON.stringify(car)));

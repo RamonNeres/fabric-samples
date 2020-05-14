@@ -23,12 +23,16 @@
          <name>OSS Sonatype</name>
          <url>https://oss.sonatype.org/content/repositories/snapshots</url>
       </repository>
+      <repository>
+         <id>jitpack.io</id>
+         <url>https://jitpack.io</url>
+      </repository>
    </repositories>
    <dependencies>
       <dependency>
-         <groupId>org.hyperledger.fabric</groupId>
-         <artifactId>fabric-gateway-java</artifactId>
-         <version>1.4.1-SNAPSHOT</version>
+	 <groupId>org.hyperledger.fabric</groupId>
+	 <artifactId>fabric-gateway-java</artifactId>
+         <version>1.4.1</version>
       </dependency>
       <dependency>
          <groupId>org.junit.platform</groupId>
@@ -51,6 +55,11 @@
          <artifactId>assertj-core</artifactId>
          <version>3.12.2</version>
          <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>com.github.stefano81</groupId>
+         <artifactId>dcpabe</artifactId>
+         <version>v1.1.0</version>
       </dependency>
    </dependencies>
 </project>
