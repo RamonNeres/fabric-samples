@@ -4,6 +4,7 @@
 
 package org.hyperledger.fabric.samples.fabcar;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,15 +22,6 @@ import org.hyperledger.fabric.shim.ledger.KeyValue;
 import org.hyperledger.fabric.shim.ledger.QueryResultsIterator;
 
 import com.owlike.genson.Genson;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import sg.edu.ntu.sce.sands.crypto.DCPABETool;
-import sg.edu.ntu.sce.sands.crypto.dcpabe.*;
-import org.bouncycastle.crypto.DataLengthException;
-import sg.edu.ntu.sce.sands.crypto.utility.Utility;
-import org.bouncycastle.crypto.InvalidCipherTextException;
-import sg.edu.ntu.sce.sands.crypto.dcpabe.key.PersonalKey;
-import sg.edu.ntu.sce.sands.crypto.dcpabe.ac.AccessStructure;
-import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 
 /**
  * Java implementation of the Fabric Car Contract described in the Writing Your
@@ -69,25 +61,42 @@ public final class FabCar implements ContractInterface {
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
         }
 
-        MedRecord medRecord = genson.deserialize(medRecordState, MedRecord.class);
-
-        return medRecord;
+        return genson.deserialize(medRecordState, MedRecord.class);
     }
 
     @Transaction()
-    public AuthorityKeys queryAuthority(final Context ctx, final String key) {
+    public String queryMedRecordFile(final Context ctx, final String key) {
         ChaincodeStub stub = ctx.getStub();
         String medRecordState = stub.getStringState(key);
 
         if (medRecordState.isEmpty()) {
-            String errorMessage = String.format("Ak %s does not exist", key);
+            String errorMessage = String.format("MedRecord %s does not exist", key);
             System.out.println(errorMessage);
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
         }
 
-        AuthorityKeys ak = genson.deserialize(medRecordState, AuthorityKeys.class);
+        MedRecord medRecord = genson.deserialize(medRecordState, MedRecord.class);
+        String path = medRecord.getBucket();
 
-        return ak;
+        try{
+            return Util.encodeFileToBase64Binary(path);
+        } catch (IOException ex) {
+            throw new ChaincodeException(ex.getMessage(), "Erro ao ler o arquivo");
+        }
+    }
+
+    @Transaction()
+    public Authority queryAuthority(final Context ctx, final String key) {
+        ChaincodeStub stub = ctx.getStub();
+        String medRecordState = stub.getStringState(key);
+
+        if (medRecordState.isEmpty()) {
+            String errorMessage = String.format("Authority %s does not exist", key);
+            System.out.println(errorMessage);
+            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+        }
+
+        return genson.deserialize(medRecordState, Authority.class);
     }
 
     @Transaction()
@@ -106,6 +115,7 @@ public final class FabCar implements ContractInterface {
         return gp;
     }
 
+    //TODO: Deve receber userKey, authorityKey e gpKey, para verificar se existem
     @Transaction()
     public MedRecord createMedRecord(final Context ctx, final String key, final String userId, final String bucket,
                                      final String authorityID, final String globalParID, final String base64RecordFile) {
@@ -122,13 +132,17 @@ public final class FabCar implements ContractInterface {
         medRecState = genson.serialize(medRecord);
         stub.putStringState(key, medRecState);
 
-        //sendToS3(base64RecordFile);
+        try {
+            Util.base64toFile(userId, base64RecordFile);
+        } catch (IOException ex) {
+            throw new ChaincodeException(ex.getMessage(), "Erro ao gravar o arquivo");
+        }
 
         return medRecord;
     }
 
     @Transaction()
-    public User createUser(final Context ctx, final String key, final String userId, final String... attributes) {
+    public User createUser(final Context ctx, final String key, final String userId, final String attributes) {
         ChaincodeStub stub = ctx.getStub();
 
         String userState = stub.getStringState(key);
@@ -138,7 +152,7 @@ public final class FabCar implements ContractInterface {
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
         }
 
-        User user = new User(userId, attributes);
+        User user = new User(userId, attributes.split(","));
         userState = genson.serialize(user);
         stub.putStringState(key, userState);
 
@@ -146,7 +160,7 @@ public final class FabCar implements ContractInterface {
     }
 
     @Transaction()
-    public GlobalParameters createGlobalParameter(final Context ctx, final String key) {
+    public GlobalParameters createGlobalParameter(final Context ctx, final String key, final String pairingParameters, final String g1) {
         ChaincodeStub stub = ctx.getStub();
 
         String gpState = stub.getStringState(key);
@@ -156,7 +170,7 @@ public final class FabCar implements ContractInterface {
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
         }
 
-        GlobalParameters gp = DCPABE.globalSetup(160);
+        GlobalParameters gp = new GlobalParameters(pairingParameters, g1);
         gpState = genson.serialize(gp);
         stub.putStringState(key, gpState);
 
@@ -164,34 +178,53 @@ public final class FabCar implements ContractInterface {
     }
 
     @Transaction()
-    public AuthorityKeys createAuthority(final Context ctx, final String key, final String name, final String gpKey,
-                                            final String... attributes) {
+    public Authority createAuthority(final Context ctx, final String key, final String name, final String policy,
+                                            final String eg1g1a1, final String g1yi) {
         ChaincodeStub stub = ctx.getStub();
 
-        String akState = stub.getStringState(key);
-        // trocar pela quertyGlobalParameter
-        String gpState = stub.getStringState(gpKey);
+        String authorityState = stub.getStringState(key);
 
-        if (!akState.isEmpty()) {
+        if (!authorityState.isEmpty()) {
             String errorMessage = String.format("Authority %s already exists", key);
             System.out.println(errorMessage);
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
         }
-        if (gpState.isEmpty()) {
-            String errorMessage = String.format("GlobalParameter %s does not exist", gpKey);
+
+        Authority authority = new Authority(name, policy, eg1g1a1, g1yi);
+        authorityState = genson.serialize(authority);
+        stub.putStringState(key, authorityState);
+
+        return authority;
+    }
+    @Transaction
+    public Authority addPublicKey(final Context ctx, final String key, final String policy, final String eg1g1a1, final String g1yi) {
+        ChaincodeStub stub = ctx.getStub();
+
+        String authorityState = stub.getStringState(key);
+
+        if (authorityState.isEmpty()) {
+            String errorMessage = String.format("Authority %s does not exist", key);
             System.out.println(errorMessage);
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
         }
 
-        GlobalParameters gp = genson.deserialize(gpState, GlobalParameters.class);
+        Authority authority = genson.deserialize(authorityState, Authority.class);
+        if(authority.getPublicKeys().containsKey(policy))
+            throw new ChaincodeException("Policy já existe nessa Authority", FabCarErrors.CAR_ALREADY_EXISTS.toString());
 
-        AuthorityKeys ak = DCPABE.authoritySetup(name, gp, attributes);
-        akState = genson.serialize(gp);
-        stub.putStringState(key, akState);
+        Authority newAuthority = new Authority(authority.getAuthorityID());
+        authority.getPublicKeys().forEach((polName, polKeys) -> {
+            newAuthority.addPublicKey(polName, polKeys.getEg1g1a1(), polKeys.getG1yi());
+        });
 
-        return ak;
+        newAuthority.addPublicKey(policy, eg1g1a1, g1yi);
+
+        String newAuthorityState = genson.serialize(newAuthority);
+        stub.putStringState(key, newAuthorityState);
+
+        return newAuthority;
     }
-
+    
     /* FABCAR */
 
     /**
