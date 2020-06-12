@@ -76,7 +76,7 @@ public final class FabCar implements ContractInterface {
         }
 
         MedRecord medRecord = genson.deserialize(medRecordState, MedRecord.class);
-        String path = medRecord.getBucket();
+        String path = medRecord.getFileName();
 
         try{
             return Util.encodeFileToBase64Binary(path);
@@ -102,23 +102,39 @@ public final class FabCar implements ContractInterface {
     @Transaction()
     public GlobalParameters queryGlobalParameter(final Context ctx, final String key) {
         ChaincodeStub stub = ctx.getStub();
-        String medRecordState = stub.getStringState(key);
+        String gpState = stub.getStringState(key);
 
-        if (medRecordState.isEmpty()) {
+        if (gpState.isEmpty()) {
             String errorMessage = String.format("GP %s does not exist", key);
             System.out.println(errorMessage);
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
         }
 
-        GlobalParameters gp = genson.deserialize(medRecordState, GlobalParameters.class);
+        GlobalParameters gp = genson.deserialize(gpState, GlobalParameters.class);
 
         return gp;
     }
 
-    //TODO: Deve receber userKey, authorityKey e gpKey, para verificar se existem
     @Transaction()
-    public MedRecord createMedRecord(final Context ctx, final String key, final String userId, final String bucket,
-                                     final String authorityID, final String globalParID, final String base64RecordFile) {
+    public User queryUser(final Context ctx, final String key) {
+        ChaincodeStub stub = ctx.getStub();
+        String userState = stub.getStringState(key);
+
+        if (userState.isEmpty()) {
+            String errorMessage = String.format("User %s does not exist", key);
+            System.out.println(errorMessage);
+            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+        }
+
+        User gp = genson.deserialize(userState, User.class);
+
+        return gp;
+    }
+
+    //TODO: Deve receber userKey, authorityKey e gpKey, para verificar se existem?
+    @Transaction()
+    public MedRecord createMedRecord(final Context ctx, final String key, final String userId, final String fileName,
+                                     final String hash, final String authorityIDs, final String globalParID) {
         ChaincodeStub stub = ctx.getStub();
 
         String medRecState = stub.getStringState(key);
@@ -128,15 +144,9 @@ public final class FabCar implements ContractInterface {
             throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
         }
 
-        MedRecord medRecord = new MedRecord(userId, bucket, authorityID, globalParID);
+        MedRecord medRecord = new MedRecord(userId, fileName, hash, authorityIDs, globalParID);
         medRecState = genson.serialize(medRecord);
         stub.putStringState(key, medRecState);
-
-        try {
-            Util.base64toFile(userId, base64RecordFile);
-        } catch (IOException ex) {
-            throw new ChaincodeException(ex.getMessage(), "Erro ao gravar o arquivo");
-        }
 
         return medRecord;
     }
@@ -214,7 +224,7 @@ public final class FabCar implements ContractInterface {
 
         Authority newAuthority = new Authority(authority.getAuthorityID());
         authority.getPublicKeys().forEach((polName, polKeys) -> {
-            newAuthority.addPublicKey(polName, polKeys.getEg1g1a1(), polKeys.getG1yi());
+            newAuthority.addPublicKey(polName, polKeys.getEg1g1ai(), polKeys.getG1yi());
         });
 
         newAuthority.addPublicKey(policy, eg1g1a1, g1yi);

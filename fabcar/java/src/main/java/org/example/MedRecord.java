@@ -1,18 +1,14 @@
-/*
+package org.example;/*
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.hyperledger.fabric.samples.fabcar;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-import org.hyperledger.fabric.contract.annotation.DataType;
-import org.hyperledger.fabric.contract.annotation.Property;
-
-import com.owlike.genson.annotation.JsonProperty;
-
-@DataType()
-public final class MedRecord {
+//TODO: Corrigir equals, getHasCode e toString (no chaincode também).
+public final class MedRecord implements Serializable {
 
     public String getUserId() { return userId; }
 
@@ -28,28 +24,23 @@ public final class MedRecord {
 
     public String getHash() { return hash; }
 
-    @Property()
     private final String userId;
 
-    @Property()
     private final String fileName;
 
-    @Property()
     private final String authorityID;
 
-    @Property()
     private final String globalParID;
 
-    @Property()
     private final String hash;
 
     public MedRecord(@JsonProperty("userId") final String userId, @JsonProperty("fileName") final String fileName,
-                     @JsonProperty("hash") final String hash, @JsonProperty("authorityID") final String authorityID,
+                     @JsonProperty("hash") final String hash, @JsonProperty("authorityIDs") final String authorityIDs,
                      @JsonProperty("globalParID") final String globalParID) {
         this.userId = userId;
         this.fileName = fileName;
         this.hash = hash;
-        this.authorityID = authorityID;
+        this.authorityID = authorityIDs;
         this.globalParID = globalParID;
     }
 

@@ -1,17 +1,14 @@
-package org.hyperledger.fabric.samples.fabcar;
+package org.example;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
 
-import com.owlike.genson.annotation.JsonCreator;
-import org.hyperledger.fabric.contract.annotation.DataType;
-import org.hyperledger.fabric.contract.annotation.Property;
-
-import com.owlike.genson.annotation.JsonProperty;
-
-@DataType()
-public final class User {
+public final class User implements Serializable {
 
     public String getId() {
         return id;
@@ -21,10 +18,8 @@ public final class User {
         return attributes;
     }
 
-    @Property()
     private final String id;
 
-    @Property()
     private final ArrayList<String> attributes;
 
     @JsonCreator
@@ -38,7 +33,7 @@ public final class User {
         this.attributes = new ArrayList<String>();
         this.attributes.addAll(Arrays.asList(attributes));
     }
-    
+
     @Override
     public boolean equals(final Object obj) {
         if (this == obj) {
@@ -66,4 +61,3 @@ public final class User {
                 + attributes + "]";
     }
 }
-
