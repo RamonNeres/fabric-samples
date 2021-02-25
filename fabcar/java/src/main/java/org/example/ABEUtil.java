@@ -1,6 +1,8 @@
 package org.example;
 
 import java.io.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 
 import org.apache.commons.codec.binary.Base64;
@@ -30,7 +32,11 @@ public class ABEUtil {
             });
         pks.subscribeAuthority(pksMap);
         AccessStructure as = AccessStructure.buildFromPolicy(policy);
+        Instant start = Instant.now();
         Ciphertext ct = DCPABE.encrypt(m, as, gp, pks);
+        Instant end = Instant.now();
+        long total = Duration.between(start, end).toMillis();
+        System.out.println("File ABE encrypt only: " + total);
 
         try (
                 ByteArrayOutputStream fos = new ByteArrayOutputStream();
@@ -40,10 +46,13 @@ public class ABEUtil {
                 BufferedInputStream bis = new BufferedInputStream(fis);
         ) {
             oos.writeObject(ct);
-
+            Instant startAES = Instant.now();
             PaddedBufferedBlockCipher aes = Utility.initializeAES(m.getM(), true);
 
             oos.write(encryptOrDecryptPayload(aes, bis));
+            Instant endAES = Instant.now();
+            long totalAES = Duration.between(startAES, endAES).toMillis();
+            System.out.println("File AES encrypt only: " + totalAES);
             oos.flush();
             return fos.toByteArray();
         }

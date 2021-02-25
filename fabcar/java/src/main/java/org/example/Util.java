@@ -11,7 +11,9 @@ import sg.edu.ntu.sce.sands.crypto.dcpabe.key.PublicKey;
 import sg.edu.ntu.sce.sands.crypto.dcpabe.key.SecretKey;
 
 import java.io.*;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Random;
 
 public class Util {
     public static <T extends Serializable> String objToJson(T object)
@@ -90,7 +92,7 @@ public class Util {
         });
     }
 
-    public static void saveSecretKeys(PersonalKeys pks){
+    public static void savePersonalKeys(PersonalKeys pks){
         String folder = "users/"+pks.getUserID();
         File fol = new File(folder);
         fol.mkdirs();
@@ -119,5 +121,17 @@ public class Util {
 
     public static SecretKey readAuthoritySecretKey(String authorityID, String attribute) {
         return readObjFromJSON("authorities/"+authorityID + "/" + attribute + ".json", SecretKey.class);
+    }
+
+    public static String getRandomString(int len) {
+        int leftLimit = 48; // numeral '0'
+        int rightLimit = 122; // letter 'z'
+        Random random = new Random();
+
+        return random.ints(leftLimit, rightLimit + 1)
+                .filter(i -> (i <= 57 || i >= 65) && (i <= 90 || i >= 97))
+                .limit(len)
+                .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+                .toString();
     }
 }

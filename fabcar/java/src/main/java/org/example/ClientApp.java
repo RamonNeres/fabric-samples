@@ -4,23 +4,25 @@ SPDX-License-Identifier: Apache-2.0
 
 package org.example;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLOutput;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Scanner;
-import java.util.UUID;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.*;
 import com.google.errorprone.annotations.DoNotCall;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
@@ -36,8 +38,6 @@ import sg.edu.ntu.sce.sands.crypto.dcpabe.key.PublicKey;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import sg.edu.ntu.sce.sands.crypto.dcpabe.key.SecretKey;
 
 public class ClientApp {
@@ -53,9 +53,9 @@ public class ClientApp {
             .withRegion(clientRegion)
             .build();
     /* AWS */
-    //Todo: Adicionar politicas no ledger
+    //Todo: Adicionar politicas dos usuarios no ledger
     //Todo: Trazer todos os registros por usuario
-    private  static void handleUserChoice(Contract contract) {
+    private static void handleUserChoice(Contract contract) {
         try {
             int choice;
             String input;
@@ -63,6 +63,7 @@ public class ClientApp {
             Scanner txtReader = new Scanner(System.in);
 
             do {
+                //Todo: salvar localmente
                 System.out.println(" 1 - Criar GlobalParameters");
                 System.out.println(" 2 - Criar Authority");
                 System.out.println(" 3 - Criar User");
@@ -74,6 +75,9 @@ public class ClientApp {
                 System.out.println(" 9 - Query MedRecordFile");
                 System.out.println("10 - Adicionar atributo a Authority");
                 //System.out.println("10 - Gerar chave secreta para usuário");
+                System.out.println("11 - Todos arquivos do usuário");
+                System.out.println("12 - Criação de usuários e envio de pdf em paralelo");
+                System.out.println("13 - Obtenção dos pdf em paralelo");
                 System.out.println("0 - Sair");
                 choice = numReader.nextInt();
 
@@ -89,7 +93,7 @@ public class ClientApp {
                         String authKeyAuthCreate = txtReader.nextLine();
                         System.out.println("Digite o ID da autoridade");
                         String authIDAuthCreate = txtReader.nextLine();
-                        System.out.println("Digite a chave do gp a ser utilziado na criação");
+                        System.out.println("Digite a chave do gp a ser utilizado na criação");
                         String gpKeyAuthCreate = txtReader.nextLine();
                         GlobalParameters gpAuthCreate = getGP(contract, gpKeyAuthCreate);
                         System.out.println("Digite o atributo inicial da autoridade");
@@ -184,7 +188,19 @@ public class ClientApp {
 //                        System.out.println("Digite atributos do usuário (separados por espaço)");
 //                        input = txtReader.nextLine();
 //                        Util.generateUserSecretKeys(user.getId(), auth, input.split(" "));
-
+                    case 11:
+                        getAllUserMedRecords("USER1/").forEach(System.out::println);
+                        break;
+                    case 12:
+                        System.out.println("Digite o número de instâncias");
+                        int instances12 = numReader.nextInt();
+                        automatedUserAndMedRecord(contract, instances12);
+                        break;
+                    case 13:
+                        System.out.println("Digite o número de instâncias");
+                        int instances13 = numReader.nextInt();
+                        automatedQueryMedRecord(contract, instances13);
+                        break;
                 }
 
             } while (choice != 0);
@@ -192,6 +208,130 @@ public class ClientApp {
                 InvalidCipherTextException | ClassNotFoundException e) {
             System.out.println("Erro: ");
             System.out.println(e.getMessage());
+        }
+    }
+
+    private static void automatedUserAndMedRecord(Contract contract, int repetitions) {
+        int count = 0;
+        PrintStream old = null;
+        try {
+            File file = new File("output.txt");
+            PrintStream stream = new PrintStream(file);
+            old = System.out;
+            System.setOut(stream);
+        } catch (Exception e) {
+            System.out.println("Erro no redirect do print");
+        }
+
+        Integer[] sequence = IntStream.rangeClosed(1, repetitions).boxed().toArray(Integer[]::new);
+        Stream parallelStream = Arrays.asList(sequence).parallelStream();
+        ForkJoinPool fkp = null;
+        Instant start = Instant.now();
+        try {
+            fkp = new ForkJoinPool(repetitions);
+            fkp.submit(() ->
+                    parallelStream.forEach((id) -> {
+                        try {
+                            //3
+                            String userIDUserCreate = "user_parallel_teste_" + Util.getRandomString(7) + "-" + id;
+
+                            String userAttributesUserCreate = "PATIENT";
+                            createUser(contract, userIDUserCreate, userIDUserCreate, userAttributesUserCreate.split(" "));
+
+                            //4
+                            String filePathMedRecordCreate = "DCPABE.pdf";
+                            byte[] clearFile = FileUtils.readFileToByteArray(new File(filePathMedRecordCreate));
+                            String userIDMedRecordCreate = userIDUserCreate;
+                            User userMedRecordCreate = getUser(contract, userIDMedRecordCreate);
+                            String gpIDMedRecordCreate = "chave";
+                            GlobalParameters gp = getGP(contract, gpIDMedRecordCreate);
+
+                            String policyMedRecordCreate = "MEDIC"; // TODO: Authority does not have the id attribute
+                            String authId = "a1";
+                            Authority auth = getAuthority(contract, authId);
+
+                            MedRecord md = createMedRecord(contract, clearFile, userMedRecordCreate, policyMedRecordCreate, gp, auth, gpIDMedRecordCreate);
+                            System.out.println("Finished for id " + id);
+                        } catch (IOException | ContractException | TimeoutException | InterruptedException | NoSuchAlgorithmException |
+                                InvalidCipherTextException e) {
+                            System.out.println("Erro: ");
+                            System.out.println(e.getMessage());
+                        }
+                    })
+            ).get();
+        } catch (InterruptedException | ExecutionException e) {
+            System.out.println("Erro:" + e.getMessage());
+        } finally {
+            if (fkp != null) {
+                fkp.shutdown();
+            }
+        }
+        Instant end = Instant.now();
+        long total = Duration.between(start, end).toMillis();
+        System.out.println("Total: " + total);
+        System.out.println("Execution complete");
+
+        try {
+            System.out.flush();
+            System.setOut(old);
+        } catch (Exception e) {
+            System.out.println("Erro no re-redirect do print");
+        }
+    }
+
+    private static void automatedQueryMedRecord(Contract contract, int repetitions) {
+        int count = 0;
+        PrintStream old = null;
+        try {
+            File file = new File("output.txt");
+            PrintStream stream = new PrintStream(file);
+            old = System.out;
+            System.setOut(stream);
+        } catch (Exception e) {
+            System.out.println("Erro no redirect do print");
+        }
+
+        Integer[] sequence = IntStream.rangeClosed(1, repetitions).boxed().toArray(Integer[]::new);
+        Stream parallelStream = Arrays.asList(sequence).parallelStream();
+        ForkJoinPool fkp = null;
+        Instant start = Instant.now();
+        try {
+            fkp = new ForkJoinPool(repetitions);
+            fkp.submit(() ->
+                    parallelStream.forEach((id) -> {
+//                        try {
+//                            //3
+//                            query MedRecord
+//                            query user
+//                            query gp
+//                            baixa arquivo
+//                            decripta chave
+//                            decripta arquivo
+//                            System.out.println("Finished for id " + id);
+//                        } catch (IOException | ContractException | TimeoutException | InterruptedException | NoSuchAlgorithmException |
+//                                InvalidCipherTextException e) {
+//                            System.out.println("Erro: ");
+//                            System.out.println(e.getMessage());
+//                        }
+                    })
+            ).get();
+        } catch (InterruptedException | ExecutionException e) {
+            System.out.println("Erro:" + e.getMessage());
+        } finally {
+            if (fkp != null) {
+                fkp.shutdown();
+            }
+        }
+        Instant end = Instant.now();
+        long total = Duration.between(start, end).toMillis();
+        System.out.println("Total: " + total);
+        System.out.println("Execution complete");
+
+        try {
+            System.out.flush();
+            System.setOut(old);
+        } catch (Exception e) {
+            System.out.println("Erro no re-redirect do print");
         }
     }
 
@@ -278,7 +418,7 @@ public class ClientApp {
 
             /* Salva ak para manter as chaves secretas */
             System.out.println("Salvando chaves secretas localmente...");
-            Util.saveSecretKeys(ak);
+            //Util.saveSecretKeys(ak);
             System.out.println();
 
             /* Recupera autoridade */
@@ -367,28 +507,67 @@ public class ClientApp {
 
     private static AuthorityKeys createAuthority(Contract contract, String authKey, String authorityID, GlobalParameters gp, String attribute)
             throws ContractException, TimeoutException, InterruptedException {
+        Instant startCreateAuth = Instant.now();
         AuthorityKeys ak = DCPABE.authoritySetup(authorityID, gp, attribute);
 
-        String eg1ai = new String(java.util.Base64.getEncoder().encode(ak.getPublicKeys().get(attribute).getEg1g1ai()));
-        String g1yi = new String(java.util.Base64.getEncoder().encode(ak.getPublicKeys().get(attribute).getG1yi()));
+        java.util.Base64.Encoder encoder = java.util.Base64.getEncoder();
+
+        String eg1ai = new String(encoder.encode(ak.getPublicKeys().get(attribute).getEg1g1ai()));
+        String g1yi = new String(encoder.encode(ak.getPublicKeys().get(attribute).getG1yi()));
+        Util.saveSecretKeys(ak);
+
+        Instant endCreateAuth = Instant.now();
+        long totalCreateAuth = Duration.between(startCreateAuth, endCreateAuth).toMillis();
+        System.out.println("Create authority " + totalCreateAuth);
+
+        Instant startSendAuth = Instant.now();
 
         contract.submitTransaction("createAuthority", authKey, authorityID, attribute, eg1ai, g1yi);
+
+        Instant endSendAuth = Instant.now();
+        long totalSendAuth = Duration.between(startSendAuth, endSendAuth).toMillis();
+        System.out.println("Send authority " + totalSendAuth);
         return ak;
     }
 
     private static GlobalParameters createGP(Contract contract, String key)
             throws IOException, ContractException, TimeoutException, InterruptedException {
+        Instant startCreateGP = Instant.now();
         GlobalParameters gp = DCPABE.globalSetup(160);
         String pairingParameter = new String(Base64.encodeBase64(Util.objToByteArray(gp.getPairingParameters())));
         String g1 = new String(Base64.encodeBase64(gp.getG1().toBytes()));
+        Instant endCreateGP = Instant.now();
+        long totalCreateGP = Duration.between(startCreateGP, endCreateGP).toMillis();
+        System.out.println("Create gp " + totalCreateGP);
+
+        Instant startSendGP = Instant.now();
         contract.submitTransaction("createGlobalParameter", key, pairingParameter, g1);
+        Instant endSendGP = Instant.now();
+        long totalSendGP = Duration.between(startSendGP, endSendGP).toMillis();
+        System.out.println("Send GP " + totalSendGP);
         return gp;
     }
 
     private static User createUser(Contract contract, String key, String userID, String... attributes)
             throws ContractException, TimeoutException, InterruptedException {
+        Instant startCreateUser = Instant.now();
         User user = new User(userID, attributes);
+        Instant endCreateUser = Instant.now();
+        long totalCreateUser = Duration.between(startCreateUser, endCreateUser).toMillis();
+        System.out.println("Create user: " + totalCreateUser);
+
+//        PersonalKeys perKeys = new PersonalKeys(user.getId());
+//
+//        for (String attribute : user.getAttributes()) {
+//            SecretKey sk = Util.readAuthoritySecretKey("a", attribute);
+//            perKeys.addKey(DCPABE.keyGen(user.getId(), attribute, sk, gp));
+//        }
+
+        Instant startSendUser = Instant.now();
         contract.submitTransaction("createUser", key, userID, String.join(",", attributes));
+        Instant endSendUser = Instant.now();
+        long totalSendUser = Duration.between(startSendUser, endSendUser).toMillis();
+        System.out.println("Send user: " + totalSendUser);
         return user;
     }
 
@@ -430,23 +609,55 @@ public class ClientApp {
     }
 
     private static GlobalParameters getGP(Contract contract, String key) throws ContractException {
+        Instant startQueryGP = Instant.now();
         byte[] result = contract.evaluateTransaction("queryGlobalParameter", key);
-        return Util.readObjFromJSON(result, GlobalParameters.class);
+        GlobalParameters gp =Util.readObjFromJSON(result, GlobalParameters.class);
+
+        Instant endQueryGP = Instant.now();
+        long totalQueryGP = Duration.between(startQueryGP, endQueryGP).toMillis();
+        System.out.println("Query gp: " + totalQueryGP);
+
+        return gp;
     }
 
     private static Authority getAuthority(Contract contract, String key) throws ContractException {
+        Instant startQueryAuth = Instant.now();
+
         byte[] result = contract.evaluateTransaction("queryAuthority", key);
-        return Util.readObjFromJSON(result, Authority.class);
+
+        Authority au = Util.readObjFromJSON(result, Authority.class);
+
+        Instant endQueryAuth = Instant.now();
+        long totalQueryAuth = Duration.between(startQueryAuth, endQueryAuth).toMillis();
+        System.out.println("Query auth: " + totalQueryAuth);
+
+        return au;
     }
 
     private static User getUser(Contract contract, String key) throws ContractException {
+        Instant startQueryUser = Instant.now();
+
         byte[] result = contract.evaluateTransaction("queryUser", key);
-        return Util.readObjFromJSON(result, User.class);
+        User us = Util.readObjFromJSON(result, User.class);
+
+        Instant endQueryUser = Instant.now();
+        long totalQueryUser = Duration.between(startQueryUser, endQueryUser).toMillis();
+        System.out.println("Query user: " + totalQueryUser);
+
+        return us;
     }
 
     private static MedRecord getMedRecord(Contract contract, String key) throws ContractException {
+        Instant startQueryMedRecord = Instant.now();
+
         byte[] result = contract.evaluateTransaction("queryMedRecord", key);
-        return Util.readObjFromJSON(result, MedRecord.class);
+        MedRecord mr = Util.readObjFromJSON(result, MedRecord.class);
+
+        Instant endQueryMedRecord = Instant.now();
+        long totalQueryMedRecord = Duration.between(startQueryMedRecord, endQueryMedRecord).toMillis();
+        System.out.println("Query MedRecord: " + totalQueryMedRecord);
+
+        return mr;
     }
 
     private static void sendRecordToS3(byte[] data, String userID, String fileName) {
@@ -465,26 +676,63 @@ public class ClientApp {
         return IOUtils.toByteArray(inputStream);
     }
 
+    private static List<String> getAllUserMedRecords(String userID) {
+        ObjectListing listing = s3Client.listObjects(BUCKET_NAME, userID);
+        List<S3ObjectSummary> summaries = listing.getObjectSummaries();
+
+        while (listing.isTruncated()) {
+            listing = s3Client.listNextBatchOfObjects(listing);
+            summaries.addAll (listing.getObjectSummaries());
+        }
+
+        return summaries.stream().map(S3ObjectSummary::getKey).collect(Collectors.toList());
+    }
+
     private static MedRecord createMedRecord(Contract contract, byte[] clearFile, User user, String policy, GlobalParameters gp,
         Authority authority, String gpId) throws InterruptedException, InvalidCipherTextException, IOException, TimeoutException,
             ContractException, NoSuchAlgorithmException {
-
+        Instant startEncFull = Instant.now();
         byte[] encPdf = ABEUtil.encrypt(clearFile, policy, gp, authority);
+        Instant endEncFull = Instant.now();
+        long total = Duration.between(startEncFull, endEncFull).toMillis();
+        System.out.println("File full encrypt: " + total);
+
+        Instant startHash = Instant.now();
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(encPdf);
         String encodedHash = Util.encodeBytesToBase64(hash);
-        System.out.println();
+        Instant endHash = Instant.now();
+        long totalHash = Duration.between(startHash, endHash).toMillis();
+        System.out.println("Hash: " + totalHash);
 
-        String fileName = Long.toString(timestamp.getTime());
-        sendRecordToS3(encPdf, user.getId(), fileName);
+        //Instant startS3 = Instant.now();
+        String fileName = Long.toString(timestamp.getTime()) + encodedHash.substring(0, 5);
+        //sendRecordToS3(encPdf, user.getId(), fileName);
+        //Instant endS3 = Instant.now();
+        //long totalS3 = Duration.between(startS3, endS3).toMillis();
+        //System.out.println("S3: " + totalS3);
 
-        //Todo: criar modelo para o gp para incluir chave
-        return createMedRecord(contract, fileName, user.getId(), fileName, encodedHash, authority.getAuthorityID(), gpId);
+        Instant startMedRecord = Instant.now();
+        // Todo: criar modelo para o gp para incluir chave
+        MedRecord md = createMedRecord(contract, fileName, user.getId(), fileName, encodedHash, authority.getAuthorityID(), gpId);
+        Instant endMedRecord = Instant.now();
+        long totalMedRecord = Duration.between(startMedRecord, endMedRecord).toMillis();
+        System.out.println("MedRecord to blockchain: " + totalMedRecord);
+
+        return md;
     }
 
+    // Todo: Usuário está sendo criado aqui. Isso não faz sentido se o cliente é de uso público
+    //       pois posso fingir ser quem eu quiser.
+
+    // Todo: Pensando melhor, permitir a criação de usuários tambem seria um problema, então o cliente
+    //       talvez não deva ser público.
+
+    //Todo: Talvez este seja apenas um novo caso de uso
     private static MedRecord getMedRecordFile(Contract contract, String medRecordID, String gpID, String userId, String filePath)
             throws ContractException, IOException, InvalidCipherTextException, ClassNotFoundException {
+
         MedRecord mr = getMedRecord(contract, medRecordID);
         User user = getUser(contract, userId);
         GlobalParameters gp = getGP(contract, gpID);

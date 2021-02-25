@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 import java.util.Objects;
 
-//TODO: Corrigir equals, getHasCode e toString (no chaincode também).
+//TODO: Corrigir equals, getHashCode e toString (no chaincode também).
 public final class MedRecord implements Serializable {
 
     public String getUserId() { return userId; }

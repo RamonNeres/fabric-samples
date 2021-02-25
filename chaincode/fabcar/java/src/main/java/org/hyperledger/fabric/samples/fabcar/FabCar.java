@@ -45,9 +45,9 @@ public final class FabCar implements ContractInterface {
 
     private final Genson genson = new Genson();
 
-    private enum FabCarErrors {
-        CAR_NOT_FOUND,
-        CAR_ALREADY_EXISTS
+    private enum MedRecordErrors {
+        MED_RECORD_NOT_FOUND,
+        MED_RECORD_ALREADY_EXISTS
     }
 
     @Transaction()
@@ -58,7 +58,7 @@ public final class FabCar implements ContractInterface {
         if (medRecordState.isEmpty()) {
             String errorMessage = String.format("MedRecord %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         return genson.deserialize(medRecordState, MedRecord.class);
@@ -72,7 +72,7 @@ public final class FabCar implements ContractInterface {
         if (medRecordState.isEmpty()) {
             String errorMessage = String.format("MedRecord %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         MedRecord medRecord = genson.deserialize(medRecordState, MedRecord.class);
@@ -93,7 +93,7 @@ public final class FabCar implements ContractInterface {
         if (medRecordState.isEmpty()) {
             String errorMessage = String.format("Authority %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         return genson.deserialize(medRecordState, Authority.class);
@@ -107,7 +107,7 @@ public final class FabCar implements ContractInterface {
         if (gpState.isEmpty()) {
             String errorMessage = String.format("GP %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         GlobalParameters gp = genson.deserialize(gpState, GlobalParameters.class);
@@ -123,7 +123,7 @@ public final class FabCar implements ContractInterface {
         if (userState.isEmpty()) {
             String errorMessage = String.format("User %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         User gp = genson.deserialize(userState, User.class);
@@ -141,7 +141,7 @@ public final class FabCar implements ContractInterface {
         if (!medRecState.isEmpty()) {
             String errorMessage = String.format("MedRecord %s already exists", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_ALREADY_EXISTS.toString());
         }
 
         MedRecord medRecord = new MedRecord(userId, fileName, hash, authorityIDs, globalParID);
@@ -159,7 +159,7 @@ public final class FabCar implements ContractInterface {
         if (!userState.isEmpty()) {
             String errorMessage = String.format("User %s already exists", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_ALREADY_EXISTS.toString());
         }
 
         User user = new User(userId, attributes.split(","));
@@ -177,7 +177,7 @@ public final class FabCar implements ContractInterface {
         if (!gpState.isEmpty()) {
             String errorMessage = String.format("GlobalParameter %s already exists", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_ALREADY_EXISTS.toString());
         }
 
         GlobalParameters gp = new GlobalParameters(pairingParameters, g1);
@@ -197,7 +197,7 @@ public final class FabCar implements ContractInterface {
         if (!authorityState.isEmpty()) {
             String errorMessage = String.format("Authority %s already exists", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_ALREADY_EXISTS.toString());
         }
 
         Authority authority = new Authority(name, policy, eg1g1a1, g1yi);
@@ -215,13 +215,13 @@ public final class FabCar implements ContractInterface {
         if (authorityState.isEmpty()) {
             String errorMessage = String.format("Authority %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         Authority authority = genson.deserialize(authorityState, Authority.class);
         if(authority.getPublicKeys().containsKey(policy))
-            throw new ChaincodeException("Policy já existe nessa Authority", FabCarErrors.CAR_ALREADY_EXISTS.toString());
-
+            throw new ChaincodeException("Policy já existe nessa Authority", MedRecordErrors.MED_RECORD_ALREADY_EXISTS.toString());
+        //TODO: Simplificar esse trecho
         Authority newAuthority = new Authority(authority.getAuthorityID());
         authority.getPublicKeys().forEach((polName, polKeys) -> {
             newAuthority.addPublicKey(polName, polKeys.getEg1g1ai(), polKeys.getG1yi());
@@ -252,7 +252,7 @@ public final class FabCar implements ContractInterface {
         if (carState.isEmpty()) {
             String errorMessage = String.format("Car %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         Car car = genson.deserialize(carState, Car.class);
@@ -311,7 +311,7 @@ public final class FabCar implements ContractInterface {
         if (!carState.isEmpty()) {
             String errorMessage = String.format("Car %s already exists", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_ALREADY_EXISTS.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_ALREADY_EXISTS.toString());
         }
 
         Car car = new Car(make, model, color, owner);
@@ -364,7 +364,7 @@ public final class FabCar implements ContractInterface {
         if (carState.isEmpty()) {
             String errorMessage = String.format("Car %s does not exist", key);
             System.out.println(errorMessage);
-            throw new ChaincodeException(errorMessage, FabCarErrors.CAR_NOT_FOUND.toString());
+            throw new ChaincodeException(errorMessage, MedRecordErrors.MED_RECORD_NOT_FOUND.toString());
         }
 
         Car car = genson.deserialize(carState, Car.class);
